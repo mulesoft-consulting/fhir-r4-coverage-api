@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+<mule xmlns:mongo="http://www.mulesoft.org/schema/mule/mongo" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/mongo http://www.mulesoft.org/schema/mule/mongo/current/mule-mongo.xsd">
     <http:listener-config name="fhir-r4-coverage-api-httpListenerConfig">
         <http:listener-connection host="0.0.0.0" port="8081" />
     </http:listener-config>
@@ -19,16 +21,16 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 		<apikit:router config-ref="fhir-r4-coverage-api-config" />
         <flow-ref doc:name="transform-output-to-accept-header" doc:id="9a69b3ac-1a67-4cdc-96f5-42510da7deb3" name="transform-output-to-accept-header"/>
 		<error-handler>
-            <on-error-propagate type="APIKIT:BAD_REQUEST">
+            <on-error-propagate type="APIKIT:BAD_REQUEST, APP:DATA_VALIDATION_FAILED" enableNotifications="true" logException="true">
                 <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
-{message: "Bad request"}]]></ee:set-payload>
+{message: error.description default "Bad request"}]]></ee:set-payload>
                     </ee:message>
                     <ee:variables>
-                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
                     </ee:variables>
                 </ee:transform>
             </on-error-propagate>
@@ -127,6 +129,7 @@ output application/json
         </error-handler>
     </flow>
     <flow name="put:\Coverage\(id):application\fhir+json:fhir-r4-coverage-api-config">
+		<flow-ref doc:name="Flow Reference" doc:id="ab72a9ae-9930-4df2-9fe2-099868e3bb03" name="Data-Validation-Flow"/>
 		<flow-ref doc:name="put\(Resource)\(id):application\fhir+json" doc:id="eac7fc67-62a0-4226-97b2-6ce664a6553c" name="put\(Resource)\(id):application\fhir+json"/>
     </flow>
     <flow name="put:\Coverage\(id):application\fhir+xml:fhir-r4-coverage-api-config">
@@ -149,12 +152,63 @@ output application/json
 		<flow-ref doc:name="get\(Resource)\(id)\_history\(vid)" doc:id="8fb99968-b0ee-497f-9fd3-0c619bc9c38b" name="get\(Resource)\(id)\_history\(vid)"/>
     </flow>
     <flow name="post:\Coverage:application\fhir+json:fhir-r4-coverage-api-config">
+		<flow-ref doc:name="Flow Reference" doc:id="7201aa5c-755f-4d7e-be50-5c7820619f10" name="Data-Validation-Flow"/>
 		<flow-ref doc:name="post\(Resource):application\fhir+json" doc:id="09840501-56ed-43e0-9ffa-cb512655a075" name="post\(Resource):application\fhir+json"/>
     </flow>
     <flow name="post:\Coverage:application\fhir+xml:fhir-r4-coverage-api-config">
 		<flow-ref doc:name="xml_to_json" doc:id="73b3836e-c52f-4c1c-a425-242cf0ab27e9" name="xml_to_json"/>
 		<flow-ref doc:name="post:\Coverage:application\fhir+json:fhir-r4-coverage-api-config" doc:id="28881c51-136c-433f-8b95-40040b5d0ff0" name="post:\Coverage:application\fhir+json:fhir-r4-coverage-api-config"/>
     </flow>
+	<sub-flow name="Data-Validation-Flow" doc:id="b23cd333-4369-468f-837c-502ea9b9f28a">
+		<ee:transform doc:name="Get references from payload" doc:id="78326174-5bc7-4757-8fdb-7e825c5586f9">
+			<ee:message />
+			<ee:variables>
+				<ee:set-variable variableName="fKey"><![CDATA[%dw 2.0
+output application/json
+---
+[
+    {
+        "type": "organization",
+        "reference": (payload.policyHolder.reference default "" splitBy(/\//))[-1]
+    },
+    {
+        "type": "us-core-patients",
+        "reference": (payload.subscriber.reference default "" splitBy(/\//))[-1]
+    },
+    {
+        "type": "us-core-patients",
+        "reference": (payload.beneficiary.reference default "" splitBy(/\//))[-1]       
+    }
+]++( payload.payor map (item, index) -> {
+    "type": "organization",
+    "reference": (item.reference default "" splitBy(/\//))[-1]
+})]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="b25c2502-518d-4f8e-b947-b703410cbcd7" collection="#[vars.fKey]">
+			<validation:is-not-blank-string doc:name="Is not blank string" doc:id="51172b30-9e04-4653-8654-618d87eba150" message='#["Organization Does Not Exist"]' value="#[payload.reference]">
+			<error-mapping sourceType="VALIDATION:BLANK_STRING" targetType="APP:DATA_VALIDATION_FAILED" />
+		</validation:is-not-blank-string>
+			<logger level="INFO" doc:name="Logger" doc:id="4fb8cc27-a159-43bf-b85e-23fb1ab3e1fd" message="#[payload]" />
+			<try doc:name="Try" doc:id="1b23747e-758b-43b9-b148-8dee5ce1ce41">
+			<mongo:find-documents doc:name="Copy_of_Find documents" doc:id="d3ee8581-2fe7-488e-8594-51eed47370fd" config-ref="MongoDB_Config" target="documentsFromDB" collectionName='#[payload."type"]'>
+				<mongo:condition-query><![CDATA[#[%dw 2.0
+output application/json
+---
+{ "_id": { "\$oid": payload.reference } }]]]></mongo:condition-query>
+			</mongo:find-documents>
+				<error-handler>
+					<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3407d515-4a01-4696-8eb9-1272a8c7983d" type="ANY">
+						<raise-error doc:name="Raise error" doc:id="99ceb0be-22ad-463f-9621-eb7817067878" type="APP:DATA_VALIDATION_FAILED" description='#[" $(payload."type") with ID $(payload.reference) is Malformed"]'/>
+					</on-error-propagate>
+			</error-handler>
+		</try>
+			<logger level="INFO" doc:name="Logger" doc:id="1228db73-0090-4d9b-93c5-a88fedc229e7" message="#[vars.documentsFromDB]"/>
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="9e400652-828e-4227-8c12-effcdd6cc2e6" values="#[vars.documentsFromDB]" message='#[payload."type" ++ " with value " ++ payload.reference ++ " does on exist"]'>
+			<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:DATA_VALIDATION_FAILED" />
+		</validation:is-not-empty-collection>
+		</foreach>
+	</sub-flow>
 	<sub-flow name="xml_to_json" doc:id="65a936ed-71bb-47fc-9552-8d194a17df69" >
 		<ee:transform doc:name="convert XML to JSON" doc:id="e5605ba6-6131-4b23-a9b0-5d08babf2a21" >
 			<ee:message >

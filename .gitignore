@@ -1,7 +1,7 @@
 .DS_Store
 .metadata
 .mule
-
+local-props.xml
 
 # ------------------------------------------------------------------------------ #
 # Java defaults (https://github.com/github/gitignore/blob/master/Java.gitignore) #
